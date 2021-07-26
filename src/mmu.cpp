@@ -372,6 +372,15 @@ int main(int argc, char** argv) {
         }
     }
     
+    // cout<<"1\n";
+    rfile = argv[argc-1];
+    infile = argv[argc-2];
+    
+    // Reading from rfile and storing
+    myfile.open(rfile);
+    getline(myfile, s_temp);
+    sscanf(&s_temp[0], "%d", &ran_count);
+    
     switch((char)*algo) {
         case 'f':
             THE_PAGER = new FIFO(frame_count);
@@ -383,7 +392,7 @@ int main(int argc, char** argv) {
             THE_PAGER = new ESC_NRU(frame_count);
             break;
         case 'r':
-            THE_PAGER = new RANDOM(frame_count);
+            THE_PAGER = new RANDOM(frame_count, ran_count);
             break;
         default:
             cout<<"Invalid algo option\n";
@@ -391,19 +400,15 @@ int main(int argc, char** argv) {
     }
     generateFreeList();
 
-    // cout<<"1\n";
-    rfile = argv[argc-1];
-    infile = argv[argc-2];
     
-    // Reading from rfile and storing
-    myfile.open(rfile);
-    getline(myfile, s_temp);
-    sscanf(&s_temp[0], "%d", &ran_count);
     while(getline(myfile, s_temp)) {
         sscanf(&s_temp[0], "%d", &x);
         THE_PAGER->randvals.push_back(x);
     }
     myfile.close();
+
+    
+
 
     // cout<<"2\n";
     // Reading from inputfile and storing
