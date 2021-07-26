@@ -42,11 +42,9 @@ int frame_count;
 long long instr_ind = -1;
 char operation;
 int vpage;
-vector <int> randvals;
 vector <pair<char, int>> instructions;
 ifstream myfile;
 string s_temp;
-vector <Process*> proc_list;
 Pager *THE_PAGER;
 Process* CURRENT_PROCESS = nullptr;
 deque <frame_t*> free_list;
@@ -61,7 +59,7 @@ string getLineV2();
 void printVMAs() {
     Process *p;
     VMA *v;
-    for(vector<Process*>::iterator it = proc_list.begin(); it != proc_list.end(); ++it) {
+    for(vector<Process*>::iterator it = THE_PAGER->proc_list.begin(); it != THE_PAGER->proc_list.end(); ++it) {
         p = *it;
         cout<<"\nProcess #"<<p->pid<<endl;
         for(vector<VMA*>::iterator it2 = p->vma_table.begin(); it2 != p->vma_table.end(); ++it2) {
@@ -164,18 +162,19 @@ void exitProcess(Process* p) {
 void Simulation() {
     while (get_next_instruction(operation, vpage)) {
         THE_PAGER->instruction_count++;
+        THE_PAGER->daemon_count++;
         cout<<instr_ind<<": ==> "<<operation<<" "<<vpage<<endl;
         // handle special case of “c” and “e” instruction
         if (operation == 'c') {
             THE_PAGER->context_switches_count++;
             THE_PAGER->total_cost += CONTEXT_SWITCH;
-            CURRENT_PROCESS = proc_list[vpage];
+            CURRENT_PROCESS = THE_PAGER->proc_list[vpage];
             continue;
         }
         if (operation == 'e') {
             THE_PAGER->process_exit_count++;
             THE_PAGER->total_cost += PROCESS_EXIT;
-            exitProcess(proc_list[vpage]);
+            exitProcess(THE_PAGER->proc_list[vpage]);
             continue;
         }
         else {
@@ -197,7 +196,7 @@ void Simulation() {
             frame_t *newframe = get_frame();
             if (!newframe->free) {
                 Process *old_proc;
-                old_proc = proc_list[newframe->proc_id];
+                old_proc = THE_PAGER->proc_list[newframe->proc_id];
                 pte_t *old_pte = &old_proc->page_table[newframe->vpage];
                 cout<<" UNMAP "<<old_proc->pid<<":"<<newframe->vpage<<endl;
                 old_proc->unmaps++;
@@ -216,6 +215,8 @@ void Simulation() {
                         cout<<" OUT\n";
                     }
                 }
+                old_pte->modified = 0;
+                old_pte->referenced = 0;
                 old_pte->present = 0;
             }
             if(pte->pagedout) {
@@ -248,18 +249,19 @@ void Simulation() {
             THE_PAGER->total_cost += MAPS;
             // updating the pte
             pte->frame_no = newframe->frame_id;
-            pte->present = 1;
             newframe->vpage = vpage;
             newframe->proc_id = CURRENT_PROCESS->pid;
             newframe->free = 0;
+            pte->present = 1;
             // cout<<"referencing: "<<CURRENT_PROCESS->pid<<":"<<vpage<<endl;
-            pte->referenced = 1;
             
                 
         //     //-> figure out if/what to do with old frame if it was mapped
         //     // see general outline in MM-slides under Lab3 header and writeup below
         //     // see whether and how to bring in the content of the access page.
-        }// check write protection
+        }
+        pte->referenced = 1;
+        // check write protection
         if(operation == 'w')
         {
             if(CURRENT_PROCESS->vma_table[pte->vma_no]->write_protected) {
@@ -268,6 +270,7 @@ void Simulation() {
                 THE_PAGER->total_cost += SEGPROT;
             }
             else {
+                // cout<<"WRITE AND REF\n";
                 // cout<<"instr: "<<THE_PAGER->instruction_count<<endl;
                 pte->modified = 1;
             }
@@ -283,7 +286,7 @@ void Summarize() {
     string str1;
     int star, hash;
     //vtable per process
-    for(vector<Process*>::iterator it = proc_list.begin(); it != proc_list.end(); it++) {
+    for(vector<Process*>::iterator it = THE_PAGER->proc_list.begin(); it != THE_PAGER->proc_list.end(); it++) {
         p = *it;
         cout<<"PT["<<p->pid<<"]: ";
         for(int j=0; j<N_PTE_ENTRIES; j++) {
@@ -327,7 +330,7 @@ void Summarize() {
     cout<<endl;
 
     //per process stats
-    for(vector<Process*>::iterator it = proc_list.begin(); it != proc_list.end(); it++) {
+    for(vector<Process*>::iterator it = THE_PAGER->proc_list.begin(); it != THE_PAGER->proc_list.end(); it++) {
         p = *it;
         printf("PROC[%d]: U=%lu M=%lu I=%lu O=%lu FI=%lu FO=%lu Z=%lu SV=%lu SP=%lu\n", p->pid, p->unmaps, p->maps, p->ins, p->outs, p->fins, p->fouts, p->zeros, p->segv, p->segprot);
     }
@@ -372,6 +375,19 @@ int main(int argc, char** argv) {
     switch((char)*algo) {
         case 'f':
             THE_PAGER = new FIFO(frame_count);
+            break;
+        case 'c':
+            THE_PAGER = new CLOCK(frame_count);
+            break;
+        case 'e':
+            THE_PAGER = new ESC_NRU(frame_count);
+            break;
+        case 'r':
+            THE_PAGER = new RANDOM(frame_count);
+            break;
+        default:
+            cout<<"Invalid algo option\n";
+            exit(-1);
     }
     generateFreeList();
 
@@ -385,7 +401,7 @@ int main(int argc, char** argv) {
     sscanf(&s_temp[0], "%d", &ran_count);
     while(getline(myfile, s_temp)) {
         sscanf(&s_temp[0], "%d", &x);
-        randvals.push_back(x);
+        THE_PAGER->randvals.push_back(x);
     }
     myfile.close();
 
@@ -407,7 +423,7 @@ int main(int argc, char** argv) {
             vtable.push_back(vma);
         }
         proc = new Process(i, vtable);
-        proc_list.push_back(proc);
+        THE_PAGER->proc_list.push_back(proc);
     }
     // cout<<"3\n";
     char c1;
