@@ -246,6 +246,7 @@ void Simulation() {
             }
             cout<<" MAP "<<newframe->frame_id<<endl;
             newframe->age = 0;
+            newframe->last_used = THE_PAGER->instruction_count;
             CURRENT_PROCESS->maps++;
             THE_PAGER->total_cost += MAPS;
             // updating the pte
@@ -271,13 +272,9 @@ void Simulation() {
                 THE_PAGER->total_cost += SEGPROT;
             }
             else {
-                // cout<<"WRITE AND REF\n";
-                // cout<<"instr: "<<THE_PAGER->instruction_count<<endl;
                 pte->modified = 1;
             }
         }
-        // // simulate instruction execution by hardware by updating the R/M PTE bits
-        // update_pte(read/modify) bits based on operations.
     }
 }
 
@@ -397,6 +394,9 @@ int main(int argc, char** argv) {
             break;
         case 'a':
             THE_PAGER = new AGING(frame_count);
+            break;
+        case 'w':
+            THE_PAGER = new WORKING_SET(frame_count);
             break;
         default:
             cout<<"Invalid algo option\n";
