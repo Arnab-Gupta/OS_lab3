@@ -1,4 +1,5 @@
 #include <vector>
+#include <math.h>
 
 using namespace std;
 
@@ -7,7 +8,8 @@ struct frame_t {
     unsigned int proc_id: 4;    // since max 10 procs
     unsigned int vpage: 6;      // since max 64 vpages per proc
     unsigned int free: 1;       // indicates whether a particular frame is free or not
-    frame_t() : proc_id(0), vpage(0), free(1) {}
+    unsigned int age: 32;   // counter for aging algo
+    frame_t() : proc_id(0), vpage(0), free(1), age(0) {}
 };
 
 class Pager {
@@ -182,6 +184,62 @@ class ESC_NRU: public Pager {
                 }
                 if(f_ind == frame_ind%frame_count) {
                     _class += 1;
+                }
+                fp = &frame_table[frame_ind%frame_count];
+                p = proc_list[fp->proc_id];
+            }
+            return fp;
+        }
+};
+
+class AGING: public Pager {
+    public:
+        AGING (int fc) {
+            daemon_count = 0;
+            total_cost = 0;
+            instruction_count = 0;
+            context_switches_count = 0;
+            process_exit_count = 0;
+            frame_count = fc;
+            frame_ind = 0;
+            for(int i=0; i < fc; i++) {
+                frame_t f;
+                f.frame_id = i;
+                frame_table.push_back(f);
+            }
+            proc_list.clear();
+            randvals.clear();
+        }
+
+        void incrementAge() {
+            for(int i=0; i<frame_count; i++) {
+                frame_table[i].age = frame_table[i].age >> 1;
+                if(proc_list[frame_table[i].proc_id]->page_table[frame_table[i].vpage].referenced) {
+                    proc_list[frame_table[i].proc_id]->page_table[frame_table[i].vpage].referenced = 0;
+                    frame_table[i].age = frame_table[i].age | 0x80000000;
+                }
+            }
+        }
+
+        frame_t* select_victim_frame() {
+            incrementAge();
+            frame_t *fp, *mfp;
+            int f_ind, min_age = pow(2, 32) - 1;
+            fp = &frame_table[frame_ind%frame_count];
+            mfp = fp;
+            Process* p = proc_list[fp->proc_id];
+            f_ind = frame_ind % frame_count;
+            while(1) {
+                // cout<<"checking... "<<fp->vpage<<endl;
+                if (fp->age < min_age) {
+                    min_age = fp->age;
+                    mfp = fp;
+                }
+                frame_ind++;
+                if(f_ind == frame_ind % frame_count) {
+                    frame_ind = mfp->frame_id;
+                    // cout<<"picked... "<<mfp->vpage<<endl;
+                    return mfp;
                 }
                 fp = &frame_table[frame_ind%frame_count];
                 p = proc_list[fp->proc_id];

@@ -245,6 +245,7 @@ void Simulation() {
                 }
             }
             cout<<" MAP "<<newframe->frame_id<<endl;
+            newframe->age = 0;
             CURRENT_PROCESS->maps++;
             THE_PAGER->total_cost += MAPS;
             // updating the pte
@@ -393,6 +394,9 @@ int main(int argc, char** argv) {
             break;
         case 'r':
             THE_PAGER = new RANDOM(frame_count, ran_count);
+            break;
+        case 'a':
+            THE_PAGER = new AGING(frame_count);
             break;
         default:
             cout<<"Invalid algo option\n";
