@@ -307,9 +307,3 @@ class WORKING_SET: public Pager {
             return mfp;
         }
 };
-<<<<<<< HEAD
-=======
-
-
-// to be checked line 243 with a +1
->>>>>>> 9431736b0b5150027ef8596838b732fa5735093c
