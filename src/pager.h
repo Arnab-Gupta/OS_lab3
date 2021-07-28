@@ -228,11 +228,7 @@ class AGING: public Pager {
             incrementAge();
             frame_t *fp, *mfp;
             int f_ind;
-<<<<<<< HEAD
-	    unsigned int min_age = pow(2, 32) - 1;
-=======
-            unsigned int min_age = pow(2, 32) - 1;
->>>>>>> 9431736b0b5150027ef8596838b732fa5735093c
+	        unsigned int min_age = pow(2, 32) - 1;
             fp = &frame_table[frame_ind%frame_count];
             mfp = fp;
             Process* p = proc_list[fp->proc_id];
