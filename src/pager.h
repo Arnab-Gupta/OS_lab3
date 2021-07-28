@@ -1,6 +1,8 @@
 #include <vector>
 #include <math.h>
 
+#define TAU 50
+
 using namespace std;
 
 struct frame_t {
@@ -9,7 +11,8 @@ struct frame_t {
     unsigned int vpage: 6;      // since max 64 vpages per proc
     unsigned int free: 1;       // indicates whether a particular frame is free or not
     unsigned int age: 32;   // counter for aging algo
-    frame_t() : proc_id(0), vpage(0), free(1), age(0) {}
+    unsigned long long last_used: 64;
+    frame_t() : proc_id(0), vpage(0), free(1), age(0), last_used(0) {}
 };
 
 class Pager {
@@ -47,8 +50,8 @@ class FIFO: public Pager {
         }
         frame_t* select_victim_frame() {
             frame_t *fp;
-            fp = &frame_table[frame_ind];
-            frame_ind = (frame_ind + 1) % frame_count;
+            fp = &frame_table[frame_ind%frame_count];
+            frame_ind++;
             return fp;
         }
 };
@@ -173,7 +176,7 @@ class ESC_NRU: public Pager {
                 class_ind = 2 * p->page_table[fp->vpage].referenced + p->page_table[fp->vpage].modified;
                 if(class_ind <= _class) {
                     frame_ind++;
-                    if(daemon_count >= 50) {
+                    if(daemon_count >= TAU) {
                         resetReferencedBit();
                         daemon_count = 0;
                     }
@@ -224,7 +227,8 @@ class AGING: public Pager {
         frame_t* select_victim_frame() {
             incrementAge();
             frame_t *fp, *mfp;
-            int f_ind, min_age = pow(2, 32) - 1;
+            int f_ind;
+	    unsigned int min_age = pow(2, 32) - 1;
             fp = &frame_table[frame_ind%frame_count];
             mfp = fp;
             Process* p = proc_list[fp->proc_id];
@@ -237,7 +241,7 @@ class AGING: public Pager {
                 }
                 frame_ind++;
                 if(f_ind == frame_ind % frame_count) {
-                    frame_ind = mfp->frame_id;
+                    frame_ind = mfp->frame_id + 1;
                     // cout<<"picked... "<<mfp->vpage<<endl;
                     return mfp;
                 }
@@ -245,5 +249,57 @@ class AGING: public Pager {
                 p = proc_list[fp->proc_id];
             }
             return fp;
+        }
+};
+
+class WORKING_SET: public Pager {
+    public:
+        WORKING_SET (int fc) {
+            daemon_count = 0;
+            total_cost = 0;
+            instruction_count = 0;
+            context_switches_count = 0;
+            process_exit_count = 0;
+            frame_count = fc;
+            frame_ind = 0;
+            for(int i=0; i < fc; i++) {
+                frame_t f;
+                f.frame_id = i;
+                frame_table.push_back(f);
+            }
+            proc_list.clear();
+            randvals.clear();
+        }
+
+        frame_t* select_victim_frame() {
+            frame_t *fp, *mfp;
+            int f_ind, ref_zero_count = 0;
+            fp = &frame_table[frame_ind%frame_count];
+            mfp = fp;
+            long long max_age = instruction_count;
+            Process* p = proc_list[fp->proc_id];
+            f_ind = frame_ind % frame_count;
+            do {
+                if (p->page_table[fp->vpage].referenced) {
+                    p->page_table[fp->vpage].referenced = 0;
+                    fp->last_used = instruction_count;
+                }
+                else {
+                    ref_zero_count++;
+                    if ((instruction_count - fp->last_used) >= TAU) {
+                        frame_ind++;
+                        return fp;
+                    }
+                }
+                if (max_age > fp->last_used) {
+                    max_age = fp->last_used;
+                    mfp = fp;
+                }
+                frame_ind++;
+                fp = &frame_table[frame_ind%frame_count];
+                p = proc_list[fp->proc_id];
+            } while(ref_zero_count < frame_count);
+            frame_ind = mfp->frame_id + 1;
+            return mfp;
         }
 };

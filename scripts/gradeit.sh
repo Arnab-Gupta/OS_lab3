@@ -10,8 +10,8 @@ USEDIFF=0
 DARGS=         # nothing
 DARGS="-q --speed-large-files"         # the big files are killing us --> out of memory / fork refused etc
 
-INPUTS=`seq 1 11`
-ALGOS=" f  r  c  e  a"
+INPUTS=`seq 1 12`
+ALGOS=" f  r  c  e  a  w"
 FRAMES="16 32"
 
 declare -ai counters
@@ -48,11 +48,12 @@ for I in ${INPUTS}; do
 #       diff hangs .. cmp does the same trick as we only what see whether it diffes
         if [[ ${USEDIFF} -eq 1 ]]; then
             DIFFCMD="diff -b ${DARGS} ${DIR1}/${OUTF} ${DIR2}/${OUTF}"
+            DIFF=$(${DIFFCMD})
         else
-            DIFFCMD="cmp ${DIR1}/${OUTF} ${DIR2}/${OUTF}"
+            DIFFCMD="cmp ${DIR1}/${OUTF} ${DIR2}/${OUTF} 2>&1"
+            DIFF=$(cmp ${DIR1}/${OUTF} ${DIR2}/${OUTF} 2>&1)
         fi
-        DIFF=`${DIFFCMD}`
-        if [[ "${DIFF}" == "" ]]; then
+        if [[ $? == 0 ]]; then
             OUTLINE=`printf "%s  ." "${OUTLINE}"`
             let counters[$x]=`expr ${counters[$x]} + 1`
         else
