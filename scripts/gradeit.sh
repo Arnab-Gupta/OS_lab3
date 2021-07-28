@@ -10,7 +10,11 @@ USEDIFF=0
 DARGS=         # nothing
 DARGS="-q --speed-large-files"         # the big files are killing us --> out of memory / fork refused etc
 
+<<<<<<< HEAD
 INPUTS=`seq 1 12`
+=======
+INPUTS=`seq 1 11`
+>>>>>>> 9431736b0b5150027ef8596838b732fa5735093c
 ALGOS=" f  r  c  e  a  w"
 FRAMES="16 32"
 

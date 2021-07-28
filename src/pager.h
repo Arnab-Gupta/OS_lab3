@@ -228,7 +228,11 @@ class AGING: public Pager {
             incrementAge();
             frame_t *fp, *mfp;
             int f_ind;
+<<<<<<< HEAD
 	    unsigned int min_age = pow(2, 32) - 1;
+=======
+            unsigned int min_age = pow(2, 32) - 1;
+>>>>>>> 9431736b0b5150027ef8596838b732fa5735093c
             fp = &frame_table[frame_ind%frame_count];
             mfp = fp;
             Process* p = proc_list[fp->proc_id];
@@ -303,3 +307,9 @@ class WORKING_SET: public Pager {
             return mfp;
         }
 };
+<<<<<<< HEAD
+=======
+
+
+// to be checked line 243 with a +1
+>>>>>>> 9431736b0b5150027ef8596838b732fa5735093c
